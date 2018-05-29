@@ -1,0 +1,605 @@
+#usage "<b>Generates a script will create an array of boards based on the board contained within the source file.</b>"
+       "<p>Version 5.0"
+       "<p><p>"
+       "<p><b>Usage:</b>"
+       "<p>Enter the variable values, confirm the settings, and click OK. A script will be created at the destination location. "
+       "Once the script is generated, open a new board and run the script.  You can use the source board if you set the origin"
+       "so it won't conflict with the original board."
+       "<p><b>Variables:</b></p>"
+       "<p><b>Origin</b> - where to start the panel array.  Usually (0,0) or (0,0) plus the height of the current board.</p>"
+       "<p><b>Columns</b> - Number of boards to make in the X direction.</p>"
+       "<p><b>Rows</b> - Number of boards to make in the Y direction.</p>"
+       "<p><b>X Spacing</b> - Distance between boards in X direction.</p>"
+       "<p><b>Y Spacing</b> - Distance between boards in Y direction.</p>"
+       "<p>Based on original work by:<p>"
+       "<author>Author: Maurice SAAB (Lebanon) morisaab@yahoo.fr</author>"
+       "<p>"
+       "<author>Edited By: Todd Beyer (USA) tbeyer74@hotmail.com</author>"
+       "<p>"
+       "<author>Edited By: Thomas M. Sasala (USA) (cyberreefguru)</author>"
+
+// THIS PROGRAM IS PROVIDED AS IS AND WITHOUT WARRANTY OF ANY KIND, EXPRESSED OR IMPLIED
+
+
+//int nb_sig_cmn=0;
+int b=0;
+int accept=0;
+int nx, ny;
+real deltax, deltay, orgx, orgy;
+//string cmn_sig[];
+string suffix="x";
+
+string filePath; // Full directory path to file
+string fileName; // Name of file
+string fileLocation; // Full path and name of file
+string fileSuffix="_array"; // suffix added to file name
+string fileExt=".scr"; // file extension
+
+//int rows, cols;
+real xspacing, yspacing;
+int bAddValues=0;
+
+int iUnits;
+string sUnits;
+
+real dsize=0;
+real xdist=0, ydist=0;
+int isize = 0;
+string sSize;
+
+string name;
+string layer_names[];
+int layer_numbers[];
+int num_layers;
+int defaultTopLayer = 125;
+int defaultBottomLayer = 126;
+int selectedTopLayer=0;
+int selectedBottomLayer=0;
+int index;
+
+/***** edit this values according to your needs *************************************************************************************************/ 
+/*																	       **/
+//int tnames2=125;               /* for panelizing                                                                                               **/
+//int bnames2=126;               /* for panelizing                                                                                               **/
+/************************************************************************************************************************************************/
+
+
+
+
+board(B)
+{
+    // Compute file name and location
+    filePath = filedir(B.name);
+    fileName =filename(B.name);
+    string sext = fileext(B.name);
+    int iext = strrstr(fileName, sext);
+    if( iext >= 0)
+    {
+        fileName = strsub(fileName, 0, iext);
+        fileName += fileSuffix + fileExt;
+    }
+    fileLocation = filePath + "/" + fileName;
+    
+    // Set units
+    iUnits = B.grid.unit;
+    switch(iUnits)
+    {
+        case GRID_UNIT_MIC:
+            sUnits = "microns";
+            break;
+        case GRID_UNIT_MM:
+            sUnits = "mm";
+            break;
+        case GRID_UNIT_MIL:
+            sUnits = "mil";
+            break;
+        case GRID_UNIT_INCH:
+            sUnits = "inch";
+            break;
+    }
+
+    // Calculate approximate board size
+    B.wires(w)
+    {
+        // check if dimension layer
+        if(w.layer == 20 )
+        {
+            dsize = u2mil(w.x1-w.x2);
+            if(dsize > 0)
+            {
+                xdist += dsize;
+            }
+            dsize = u2mil(w.y1-w.y2);
+            if( dsize > 0 )
+            {
+                ydist += dsize;
+            }
+
+        }
+    }
+    sprintf(sSize, "Approx Board Size: (%f, %f)", xdist, ydist);
+
+    // Build list of all layers so user can select the top/bottom layers for text
+    index = 0;
+    B.layers(Layer)
+    {
+        if(Layer.used || Layer.number == defaultTopLayer || Layer.number == defaultBottomLayer)
+        {
+            layer_names[index] = Layer.name;
+            if(Layer.number == defaultTopLayer)
+            {
+                selectedTopLayer = index;
+            }
+
+            layer_numbers[index] = Layer.number;
+            if(Layer.number == defaultBottomLayer)
+            {
+                selectedBottomLayer = index;
+            }
+            index++;                
+        }            
+    } // end layers
+    num_layers = index-1;
+
+}
+
+
+int result = dlgDialog("Enter the variables")
+{
+    dlgGridLayout
+    {
+        dlgCell(0,0,0,2) dlgLabel(sSize);
+        
+        dlgCell(1,1) dlgLabel("X");
+        dlgCell(1,2) dlgLabel("Y");
+
+        dlgCell(2,0) dlgLabel("Array Size (X,Y)");
+        dlgCell(2,1) dlgIntEdit(nx,0,99);
+        dlgCell(2,2) dlgIntEdit(ny,0,99);
+
+        dlgCell(3,0) dlgLabel("Origin (X,Y)");
+        dlgCell(3,1) dlgRealEdit(orgx,0.0,10000.0);
+        dlgCell(3,2) dlgRealEdit(orgy,0.0,10000.0);
+        dlgCell(3,3) dlgLabel(sUnits);
+
+        dlgCell(4,0) dlgLabel("Spacing (X,Y)" );
+        dlgCell(4,1) dlgRealEdit(xspacing,0.0,10000.0);
+        dlgCell(4,2) dlgRealEdit(yspacing,0.0,10000.0);
+        dlgCell(4,3) dlgLabel(sUnits);
+
+        dlgCell(5,0) dlgLabel("Top Text Layer" );
+        dlgCell(5,1,5,4) dlgComboBox(layer_names, selectedTopLayer) {};
+
+        dlgCell(6,0) dlgLabel("Bottom Text Layer" );
+        dlgCell(6,1,6,4) dlgComboBox(layer_names, selectedBottomLayer) {};
+
+        dlgCell(7,0) dlgLabel("Add values?");
+        dlgCell(7,1) dlgCheckBox("", bAddValues);
+        
+        dlgCell(8,0) dlgLabel("File Name:");
+        dlgCell(8,1, 8,3) dlgStringEdit(fileName);
+        dlgCell(8,4) dlgPushButton("...")
+        {
+            fileLocation = dlgFileSave("File Name", fileLocation, "*"+fileExt);
+            filePath = filedir(fileLocation);
+            fileName =filename(fileLocation);
+        }
+        dlgCell(9,0) dlgLabel("File Path:");
+        dlgCell(9,1, 9,4) dlgStringEdit(filePath);
+
+        dlgCell(10,1, 10,2) dlgPushButton("+Ok") dlgAccept(1);
+        dlgCell(10,3, 10,4) dlgPushButton("-Cancel") dlgReject(0);
+    }
+};
+
+if( result == 0)
+{
+    exit(0);
+}
+
+do
+{
+//    deltax=0;
+//    deltay=125+150;
+//    nx=1;
+//    ny=2;
+
+    deltax=xspacing;
+    deltay=yspacing;
+//    nx=cols;
+//    ny=rows;
+
+    //nb_sig_cmn=0;
+
+    string EntryResults;
+	//string ComSigArr;
+	
+	//ComSigArr = strjoin(cmn_sig, '\n');
+	
+ 	sprintf(EntryResults,
+ 	"Array Size - %d x %d\n\Origin(%f, %f)\nSpacing(%f, %f)\nTop Text Layer - %s (%d)\nBottom Text Layer - %s (%d)\nAdd Values - %d\nFile Location: %s",
+    nx, ny, orgx, orgy, xspacing, yspacing, layer_names[selectedTopLayer], layer_numbers[selectedTopLayer], layer_names[selectedBottomLayer],layer_numbers[selectedBottomLayer],bAddValues, fileLocation);
+ 	
+	accept= dlgDialog("Entry Results")
+	{
+		dlgHBoxLayout
+		{
+			dlgVBoxLayout
+			{
+				dlgTextView("The Values You Entered Are: \n\n" + EntryResults);
+			}		
+		}
+		dlgHBoxLayout
+		{
+			dlgPushButton("+OK") dlgAccept();
+	 		dlgSpacing(50);
+	 	 	dlgPushButton("-Cancel") dlgReject(4);
+	      	}
+	};
+    
+} while (accept == 0);
+
+if(accept == 4)
+{
+	exit(0);
+}
+
+int i,j,k,cmn,new_layer;
+
+real xx1,yy1,xx2,yy2,xc,yc,xx3,yy3,wid,dia,dril,dx,dy,size,isol;
+
+string font[],mirror[],style[],shap[],spin[],onoff[],pour[];
+
+font[0]="VECTOR";
+font[1]="PROPORTIONAL";
+font[2]="FIXED";
+
+mirror[0]="";
+mirror[1]="M";
+
+spin[0]="";
+spin[1]="S";
+
+style[0]="CONTINUOUS";
+style[1]="LONGDASH";
+style[2]="SHORTDASH";
+style[3]="DASHDOT";
+
+shap[0]="square";
+shap[1]="round";
+shap[2]="octagon";
+
+onoff[0]="off";
+onoff[1]="on";
+
+pour[0]="solid";
+pour[1]="hatch";
+
+output(fileLocation) 
+{
+    printf("Set wire_bend 2;\n");
+    printf("Layer %d '%s';\n",layer_numbers[selectedTopLayer], layer_names[selectedTopLayer]);
+    printf("Layer %d '%s';\n",layer_numbers[selectedBottomLayer], layer_names[selectedBottomLayer]);
+
+    /*   Copy all layers above layer 99 and colors to new opened brd file  */
+    /* idea of Mr Gerrit  */
+    board(B)
+    {
+        B.layers(E)
+        {
+            if(E.number<100) continue;
+            printf("layer %d '%s';\n",E.number, E.name);
+            printf("set color_layer %d %d;\n",E.number, E.color);
+
+        } // end Layers
+
+    } // end Board
+    
+    // Copy signals
+    for(i=1;i<=nx;i++)
+    {
+        for(j=1;j<=ny;j++) 
+        {
+            dx=orgx + (i-1)*deltax;
+            dy=orgy + (j-1)*deltay;
+
+            //printf("// loop(%d, %d), org(%f, %f), delta(%f, %f), d(%f,%f)\n", i, j, orgx, orgy, deltax, deltay, dx, dy );
+
+            board(B)
+            {
+                // Run through all elements and copy all packages and package text
+                B.elements(E)
+                {
+                    xx1= u2mil(E.x)+dx;
+                    yy1= u2mil(E.y)+dy;
+
+                    //printf("//%s(%d,%d) (%f,%f) \n", E.name, E.x, E.y, u2mil(E.x), u2mil(E.y) );
+
+                    printf("add %s@%s %s%s%d%d %s%sR%f (%f %f);\n",
+                    E.package.name,E.package.library,E.name,suffix,i,j,
+                    spin[E.spin],mirror[E.mirror],E.angle,xx1,yy1);
+
+                    if(E.value!="" && bAddValues)
+                        printf("value '%s' (%f %f);\n",E.value,xx1,yy1);
+                    
+                    // Cycle through all package texts on layers 25/26
+                    // Place text on selected layer
+                    E.package.texts(t) 
+                    {
+                        if((t.layer!=25) && (t.layer!=26)) continue;
+                        if(t.layer==25) new_layer=selectedTopLayer;
+                        if(t.layer==26) new_layer=selectedBottomLayer;
+
+                        xx1= u2mil(t.x)+dx;
+                        yy1= u2mil(t.y)+dy;
+                        size= u2mil(t.size);              
+
+                        printf("change layer %d;\n",new_layer);
+                        printf("change size %f;\n",size);
+                        printf("text '%s' R%f (%f %f);\n",t.value, t.angle,xx1,yy1);
+                        
+                    }     /* E.package.texts(t) */
+                    
+                }     /* B.elements(E) */
+
+                // Copy all vias, wires, and polygons to new array board
+                B.signals(s)
+                {
+                    //cmn=0;
+                    //for(k=1;k<=nb_sig_cmn;k++) if(s.name==cmn_sig[k-1]) cmn=1;
+                    
+                    s.vias(v)
+                    {
+
+                        dia = u2mil(v.diameter[1]);
+                        xx1= u2mil(v.x)+dx;
+                        yy1= u2mil(v.y)+dy;
+                        dril=u2mil(v.drill);
+
+
+                        printf("change drill %f;\n",dril);
+                        //if(cmn==0)
+                            printf("via '%s%s%d%d' %f %s (%f %f);\n",s.name,suffix,i,j,dia,shap[v.shape[1]],xx1,yy1);  // create new
+                        //else
+                        //    printf("via '%s' %f %s (%f %f);\n",s.name,dia,shap[v.shape[1]],xx1,yy1); // keep old
+                            
+                    } // end signals.vias
+                    
+                    s.wires(w)
+                    {
+                        if(!w.arc)
+                        {
+                            wid= u2mil(w.width);
+                            xx1= u2mil(w.x1)+dx;
+                            yy1= u2mil(w.y1)+dy;
+                            xx2= u2mil(w.x2)+dx;
+                            yy2= u2mil(w.y2)+dy;
+
+                            printf("change layer %d;\n",w.layer);
+                            printf("change style %s;\n",style[w.style]);
+                            //if(cmn==0)
+                                printf("line '%s%s%d%d' %f (%f %f) (%f %f);\n",s.name,suffix,i,j,wid,xx1,yy1,xx2,yy2); // create new
+                            //else
+                            //    printf("line '%s' %f (%f %f) (%f %f)\n",s.name,wid,xx1,yy1,xx2,yy2);  // keep old
+                                
+                        } // end !w.arc
+                        
+                        if(w.arc)
+                        {
+                            wid= u2mil(w.arc.width);
+                            xx1= u2mil(w.arc.x1)+dx;
+                            yy1= u2mil(w.arc.y1)+dy;
+                            xc= u2mil(w.arc.xc)+dx;
+                            yc= u2mil(w.arc.yc)+dy;
+                            xx2= u2mil((2*w.arc.xc-w.arc.x1))+dx;
+                            yy2= u2mil((2*w.arc.yc-w.arc.y1))+dy;
+                            xx3= u2mil(w.arc.x2)+dx;
+                            yy3= u2mil(w.arc.y2)+dy;
+
+                            printf("change layer %d;\n",w.arc.layer);
+                            printf("change width %f;\n",wid);
+                            printf("change style %s;\n",style[w.style]);
+
+                            //if(cmn==0)
+                                printf("arc '%s%s%d%d' CCW (%f %f) (%f %f) (%f %f);\n",s.name,suffix,i,j,xx1,yy1,xx2,yy2,xx3,yy3);  // create new
+                            //else
+                            //    printf("arc '%s' CCW (%f %f) (%f %f) (%f %f)\n",s.name,xx1,yy1,xx2,yy2,xx3,yy3); // keep old
+
+                        } // end w.arc
+                        
+                    } // end signals.wires
+                    
+                    s.polygons(p)
+                    {
+                        wid=u2mil(p.width);
+                        isol=u2mil(p.isolate);
+
+                        printf("change layer %d;\n",p.layer);
+                        printf("change isolate %f;\n",isol);
+                        printf("change rank %d;\n",p.rank);
+                        printf("change thermals %s;\n",onoff[p.thermals]);
+                        printf("change orphans %s;\n",onoff[p.orphans]);
+                        printf("change pour %s;\n",pour[p.pour]);
+                        //if(cmn==0)
+                            printf("polygon %s%s%d%d %f",s.name,suffix,i,j,wid);  // create new
+                        //else
+                        //    printf("polygon %s %f",s.name,wid);  // keep old
+                            
+                        p.wires(w)
+                        {
+                            xx1= u2mil(w.x1)+dx;
+                            yy1= u2mil(w.y1)+dy;
+                            xx2= u2mil(w.x2)+dx;
+                            yy2= u2mil(w.y2)+dy;
+
+                            printf(" (%f %f)",xx1,yy1);
+                        
+                        } // end p.wires
+                        
+                        printf(" (%f %f);\n",xx2,yy2);
+                    }
+                    
+                } // end b.signals
+
+                // Copy all rectangles
+                B.rectangles(r)
+                {
+
+                    xx1= u2mil(r.x1)+dx;
+                    yy1= u2mil(r.y1)+dy;
+                    xx2= u2mil(r.x2)+dx;
+                    yy2= u2mil(r.y2)+dy;
+
+                    printf("change layer %d;\n",r.layer);
+                    printf("rect (%f %f) (%f %f);\n",xx1,yy1,xx2,yy2);
+                } // end b.rect
+                
+                // Copy all wires
+                B.wires(w)
+                {
+                    if(!w.arc)
+                    {
+                        wid= u2mil(w.width);
+                        xx1= u2mil(w.x1)+dx;
+                        yy1= u2mil(w.y1)+dy;
+                        xx2= u2mil(w.x2)+dx;
+                        yy2= u2mil(w.y2)+dy;
+
+                        printf("change layer %d;\n",w.layer);
+                        printf("change style %s;\n",style[w.style]);
+                        printf("line %f (%f %f) (%f %f);\n",wid,xx1,yy1,xx2,yy2);
+                        
+                    } // end if !w.arc
+                    
+                    if(w.arc)
+                    {
+
+                        wid= u2mil(w.arc.width);
+                        xx1= u2mil(w.arc.x1)+dx;
+                        yy1= u2mil(w.arc.y1)+dy;
+                        xc= u2mil(w.arc.xc)+dx;
+                        yc= u2mil(w.arc.yc)+dy;
+                        xx2= u2mil((2*w.arc.xc-w.arc.x1))+dx;
+                        yy2= u2mil((2*w.arc.yc-w.arc.y1))+dy;
+                        xx3= u2mil(w.arc.x2)+dx;
+                        yy3= u2mil(w.arc.y2)+dy;
+
+
+                        printf("change layer %d;\n",w.arc.layer);
+                        printf("change style %s;\n",style[w.style]);
+                        printf("change width %f\n",wid);
+                        printf("arc CCW (%f %f) (%f %f) (%f %f);\n",xx1,yy1,xx2,yy2,xx3,yy3);
+                        
+                    } // end if w.arc
+                    
+                } // end b.wires
+                
+                // Copy all circles
+                B.circles(c)
+                {
+                    wid= u2mil(c.width);
+                    xc= u2mil(c.x)+dx;
+                    yc= u2mil(c.y)+dy;
+                    xx1= u2mil((c.x+c.radius))+dx;
+                    yy1= u2mil(c.y)+dy;
+
+                    printf("change layer %d;\n",c.layer);
+                    printf("circle %f (%f %f) (%f %f);\n",wid,xc,yc,xx1,yy1);
+                    
+                } // end b.circles
+
+                // Copy all text
+                B.texts(t)
+                {
+                    xx1= u2mil(t.x)+dx;
+                    yy1= u2mil(t.y)+dy;
+                    size= u2mil(t.size);              
+
+                    printf("change layer %d;\n",t.layer);
+                    printf("change ratio %d;\n",t.ratio);
+                    printf("change size %f;\n",size);
+                    printf("change font %s;\n",font[t.font]);
+                    switch(t.align)
+                    {
+                        case ALIGN_BOTTOM_LEFT:
+                            printf("change align bottom left;\n");
+                            break;
+                        case ALIGN_BOTTOM_CENTER:
+                            printf("change align bottom center;\n");
+                            break;
+                        case ALIGN_BOTTOM_RIGHT:
+                            printf("change align bottom right;\n");
+                            break;
+                        case ALIGN_CENTER_LEFT:
+                            printf("change align center left;\n");
+                            break;
+                        case ALIGN_CENTER:
+                            printf("change align center;\n");
+                            break;
+                        case ALIGN_CENTER_RIGHT:
+                            printf("change align center right;\n");
+                            break;
+                        case ALIGN_TOP_LEFT:
+                            printf("change align top left;\n");
+                            break;
+                        case ALIGN_TOP_CENTER:
+                            printf("change align top center;\n");
+                            break;
+                        case ALIGN_TOP_RIGHT:
+                            printf("change align top right;\n");
+                            break;
+                    }
+                    printf("text '%s' %sR%f (%f %f);\n",t.value, mirror[t.mirror],t.angle,xx1,yy1);
+                } // end b.texts
+                
+                // Copy all signals
+                B.signals(s)
+                {
+                    //cmn=0;
+                    //for(k=1;k<=nb_sig_cmn;k++) if(s.name==cmn_sig[k-1]) cmn=1;
+                    
+                    //if(cmn==0)
+                        printf("signal '%s%s%d%d'",s.name,suffix,i,j);  // create new
+                    //else
+                    //    printf("signal '%s'",s.name); // keep old
+                        
+                    s.contactrefs(c) 
+                    {
+                        printf("\t'%s%s%d%d'\t'%s'\\\n",c.element.name,suffix,i,j,c.contact.name);
+                    }
+                    printf(";\n");
+                    
+                } // end b.signals
+                
+                // Copy all holes
+                B.holes(h)
+                {
+                    xx1= u2mil(h.x)+dx;
+                    yy1= u2mil(h.y)+dy;
+                    dril=u2mil(h.drill);
+
+                    printf("change drill %f;\n",dril);
+                    printf("hole (%f %f);\n",xx1,yy1);
+                    
+                }   /* B.holes  */
+                
+            } // end Board
+            
+        } /* for j */
+
+    } /* for i */
+
+    printf("window fit;\n");
+    printf("ratsnest;\n");
+    printf("disp -25;\n");
+
+    printf("display -25;\n");
+    printf("display -26;\n");
+    printf("display -27;\n");
+    printf("display -28;\n");
+    printf("display -37;\n");
+    printf("display -38;\n");
+    
+
+
+}
