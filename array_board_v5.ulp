@@ -24,7 +24,7 @@
 //int nb_sig_cmn=0;
 int b=0;
 int accept=0;
-int nx, ny;
+int nx=1, ny=1;
 real deltax, deltay, orgx, orgy;
 //string cmn_sig[];
 string suffix="x";
@@ -117,7 +117,7 @@ board(B)
 
         }
     }
-    sprintf(sSize, "Approx Board Size: (%f, %f)", xdist, ydist);
+    sprintf(sSize, "Approx Board Size: (%f, %f) mil or: (%f, %f) mm", xdist, ydist, u2mm(mil2u(xdist)), u2mm(mil2u(ydist)));
 
     // Build list of all layers so user can select the top/bottom layers for text
     index = 0;
@@ -154,8 +154,8 @@ int result = dlgDialog("Enter the variables")
         dlgCell(1,2) dlgLabel("Y");
 
         dlgCell(2,0) dlgLabel("Array Size (X,Y)");
-        dlgCell(2,1) dlgIntEdit(nx,0,99);
-        dlgCell(2,2) dlgIntEdit(ny,0,99);
+        dlgCell(2,1) dlgIntEdit(nx,1,99);
+        dlgCell(2,2) dlgIntEdit(ny,1,99);
 
         dlgCell(3,0) dlgLabel("Origin (X,Y)");
         dlgCell(3,1) dlgRealEdit(orgx,0.0,10000.0);
@@ -204,6 +204,31 @@ do
 //    nx=1;
 //    ny=2;
 
+    switch(iUnits)
+    {
+		//comvert the input from the user's units to mil
+        case GRID_UNIT_MIC:
+			orgx=u2mil(mic2u(orgx));
+			orgy=u2mil(mic2u(orgy));
+			xspacing=u2mil(mic2u(xspacing));
+			yspacing=u2mil(mic2u(yspacing));
+            break;
+        case GRID_UNIT_MM:
+			orgx=u2mil(mm2u(orgx));
+			orgy=u2mil(mm2u(orgy));
+			xspacing=u2mil(mm2u(xspacing));
+			yspacing=u2mil(mm2u(yspacing));
+            break;
+        case GRID_UNIT_MIL:
+            break;
+        case GRID_UNIT_INCH:
+			orgx=u2mil(inch2u(orgx));
+			orgy=u2mil(inch2u(orgy));
+			xspacing=u2mil(inch2u(xspacing));
+			yspacing=u2mil(inch2u(yspacing));
+            break;
+    }
+
     deltax=xspacing;
     deltay=yspacing;
 //    nx=cols;
@@ -217,7 +242,7 @@ do
 	//ComSigArr = strjoin(cmn_sig, '\n');
 	
  	sprintf(EntryResults,
- 	"Array Size - %d x %d\n\Origin(%f, %f)\nSpacing(%f, %f)\nTop Text Layer - %s (%d)\nBottom Text Layer - %s (%d)\nAdd Values - %d\nFile Location: %s",
+ 	"Array Size - %d x %d\n\Origin(%f, %f)mil\nSpacing(%f, %f)mil\nTop Text Layer - %s (%d)\nBottom Text Layer - %s (%d)\nAdd Values - %d\nFile Location: %s",
     nx, ny, orgx, orgy, xspacing, yspacing, layer_names[selectedTopLayer], layer_numbers[selectedTopLayer], layer_names[selectedBottomLayer],layer_numbers[selectedBottomLayer],bAddValues, fileLocation);
  	
 	accept= dlgDialog("Entry Results")
@@ -277,6 +302,7 @@ pour[1]="hatch";
 
 output(fileLocation) 
 {
+    printf("Grid mil 50 2;\n");
     printf("Set wire_bend 2;\n");
     printf("Layer %d '%s';\n",layer_numbers[selectedTopLayer], layer_names[selectedTopLayer]);
     printf("Layer %d '%s';\n",layer_numbers[selectedBottomLayer], layer_names[selectedBottomLayer]);
@@ -315,7 +341,7 @@ output(fileLocation)
 
                     //printf("//%s(%d,%d) (%f,%f) \n", E.name, E.x, E.y, u2mil(E.x), u2mil(E.y) );
 
-                    printf("add %s@%s %s%s%d%d %s%sR%f (%f %f);\n",
+                    printf("add '%s@%s' %s%s%d%d %s%sR%f (%f %f);\n",
                     E.package.name,E.package.library,E.name,suffix,i,j,
                     spin[E.spin],mirror[E.mirror],E.angle,xx1,yy1);
 
@@ -378,9 +404,9 @@ output(fileLocation)
                             printf("change layer %d;\n",w.layer);
                             printf("change style %s;\n",style[w.style]);
                             //if(cmn==0)
-                                printf("line '%s%s%d%d' %f (%f %f) (%f %f);\n",s.name,suffix,i,j,wid,xx1,yy1,xx2,yy2); // create new
+                                printf("wire '%s%s%d%d' %f (%f %f) (%f %f);\n",s.name,suffix,i,j,wid,xx1,yy1,xx2,yy2); // create new
                             //else
-                            //    printf("line '%s' %f (%f %f) (%f %f)\n",s.name,wid,xx1,yy1,xx2,yy2);  // keep old
+                            //    printf("wire '%s' %f (%f %f) (%f %f)\n",s.name,wid,xx1,yy1,xx2,yy2);  // keep old
                                 
                         } // end !w.arc
                         
@@ -467,7 +493,7 @@ output(fileLocation)
 
                         printf("change layer %d;\n",w.layer);
                         printf("change style %s;\n",style[w.style]);
-                        printf("line %f (%f %f) (%f %f);\n",wid,xx1,yy1,xx2,yy2);
+                        printf("wire %f (%f %f) (%f %f);\n",wid,xx1,yy1,xx2,yy2);
                         
                     } // end if !w.arc
                     
