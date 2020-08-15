@@ -1,6 +1,25 @@
 # PanelizeArray
 ULP to create a panelized array of a PCB.
 
+Changes in this version by CharlesVanDen:
+- Issue: if the user's units are not MIL, the created panelized PCB will have the wrong size (way too big)
+Solution: Add GRID MIL 50 2 in the beginning of the script
+
+- Issue: If the library's name contains one or more spaces, the script will not work
+Solution: Put the component's name between single quotes
+
+- Issue: The command LINE is unknown in Eagle 7.2.0
+Solution: replace LINE by WIRE
+
+- Issue: the defaults for x/y array size are 0, which is not practicle
+Solution: replace the defaults by 1,1
+
+- Issue: If the user's units are not mil, but e.g. mm, the dialog box will show the word 'mm', but the actual values are still interpreted as mil
+Solution: calculate back to mil from the user's units
+
+- Issue: the approximate board size is only shown in mil, not in mm
+Solution: also show the approximate board size in mm
+
 <p>Based on original work by:<p>
 <author>Author: Maurice SAAB (Lebanon) morisaab@yahoo.fr</author>
 <p>
